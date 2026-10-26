@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slice and Ship · APM Lab</title>
+<meta name="description" content="What default part size should a multipart uploader use for huge files? A Bayesian Beta-Binomial Monte Carlo decision prototype by Shriya Shekatkar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gluten:wght@600;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,800;1,9..40,400&family=Zilla+Slab:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FCEFE3; --coral:#F2645A; --apricot:#FFB25B; --teal:#1FB5B5; --violet:#8E5BE0; --bubble:#FF5FB0;
+  --ink:#141214; --paper:#FBFAF5; --grid:#D9D9D2;
+  --terry:#A99BE6; --terry-d:#8F7FD6; --stitch:#C81E2A;
+  --shelf:#0E0E10; --book:#62B5E0; --book-d:#3E93C2;
+  --muted:#5b5160;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"DM Sans",system-ui,sans-serif;font-size:16px;line-height:1.55;overflow-x:hidden}
+a{color:#7a3fcf}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+section{padding:56px 0}
+h2{font-family:"Gluten",system-ui;font-weight:800;font-size:clamp(28px,5vw,46px);line-height:1.05;margin:0 0 14px}
+h3{margin:0 0 6px;font-size:18px}
+.kicker{display:inline-block;font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:#fff;padding:4px 10px;border-radius:99px;margin-bottom:12px}
+
+/* ===== HERO (pin: paint splats with long brush trails, cream bokeh, rainbow rounded title) ===== */
+.hero{background:var(--cream);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:
+ radial-gradient(circle at 12% 18%,rgba(255,255,255,.9) 0 18px,transparent 19px),
+ radial-gradient(circle at 78% 12%,rgba(255,255,255,.8) 0 26px,transparent 27px),
+ radial-gradient(circle at 64% 70%,rgba(255,255,255,.7) 0 14px,transparent 15px),
+ radial-gradient(circle at 30% 84%,rgba(255,255,255,.8) 0 22px,transparent 23px),
+ radial-gradient(circle at 90% 56%,rgba(255,255,255,.75) 0 12px,transparent 13px);filter:blur(2px)}
+.hero svg.paint{position:absolute;right:-40px;top:0;height:100%;width:62%;min-width:420px;z-index:0}
+.hero .wrap{position:relative;z-index:1;padding-top:60px;padding-bottom:70px}
+.hero h1{font-family:"Gluten",system-ui;font-weight:800;font-size:clamp(40px,8vw,92px);line-height:.98;margin:8px 0 18px;max-width:12ch;
+ background:linear-gradient(90deg,var(--coral),var(--apricot) 25%,var(--teal) 50%,var(--violet) 75%,var(--bubble));-webkit-background-clip:text;background-clip:text;color:transparent;
+ filter:drop-shadow(3px 3px 0 #fff) drop-shadow(2px 3px 0 rgba(20,18,20,.25))}
+.launch{display:inline-block;background:#fff;border:2.5px solid var(--ink);border-radius:18px;padding:10px 14px;max-width:620px;font-size:15px;box-shadow:5px 5px 0 var(--violet)}
+.launch a{font-weight:800;color:#6a2fc0}
+.byline{margin-top:20px;font-weight:800;font-size:15px}
+.byline span{display:inline-block;background:#fff;padding:3px 12px;border-radius:99px;border:2px solid var(--ink);margin:4px 6px 0 0}
+.byline span:first-child{background:var(--apricot)}
+.drip{animation:drip 4s ease-in-out infinite alternate;transform-origin:left center;transform-box:fill-box}
+@keyframes drip{to{transform:scaleX(1.06)}}
+.blob{animation:wob 6s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+@keyframes wob{to{transform:scale(1.05) rotate(4deg)}}
+
+/* ===== CARDS (pin: hand-poke flash sheet: black ink ornaments on grid paper) ===== */
+.gridpaper{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px}
+.masonry{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:22px;align-items:start}
+.flash{break-inside:avoid;background:#fff;border:2.5px solid var(--ink);border-radius:6px;padding:22px 20px 18px;margin:0;position:relative}
+.flash .orn{position:absolute;width:30px;height:30px}
+.flash .tl{top:-6px;left:-6px}.flash .tr{top:-6px;right:-6px;transform:scaleX(-1)}.flash .bl{bottom:-6px;left:-6px;transform:scaleY(-1)}.flash .br{bottom:-6px;right:-6px;transform:scale(-1)}
+.flash .tag{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.flash .tag::before{content:"✣";font-size:14px}
+.flash ul{margin:6px 0 0;padding-left:18px}.flash li{margin:3px 0}
+.guard{display:flex;justify-content:space-between;gap:10px;border-top:1.5px dotted var(--ink);padding:7px 0;font-size:14.5px}
+.guard b{font-family:"JetBrains Mono",monospace;font-size:13px;white-space:nowrap}
+.btn{font:800 14px "DM Sans",sans-serif;cursor:pointer;border:2.5px solid var(--ink);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;position:relative;box-shadow:3px 3px 0 var(--book);transition:transform .15s}
+.btn:hover{transform:translate(-1px,-2px)}
+.btn.ghost{background:#fff;color:var(--ink)}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--apricot);outline-offset:3px}
+
+/* ===== SIM ROOM (pin: black shelf, sky-blue inked book spines, halftone dots) ===== */
+.sim{background:var(--shelf);color:#eef7fc;position:relative}
+.sim::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.12;background-image:radial-gradient(#62B5E0 1.2px,transparent 1.4px);background-size:9px 9px}
+.sim .wrap{position:relative}
+.sim .kicker{background:var(--book);color:var(--shelf)}
+.simgrid{display:grid;grid-template-columns:320px minmax(0,1fr);gap:22px;align-items:start}
+.panel{background:#18181c;border:2px solid var(--book);border-radius:10px;padding:16px;box-shadow:6px 6px 0 var(--book-d)}
+.ctl{margin:0 0 14px}
+.ctl label{display:flex;justify-content:space-between;font-weight:600;font-size:14px;gap:8px}
+.ctl label output{font-family:"JetBrains Mono",monospace;color:var(--book);white-space:nowrap}
+.ctl small{display:block;color:#b9cfdc;font-size:12.5px;line-height:1.35;margin-top:2px}
+input[type=range]{width:100%;accent-color:var(--book);margin:6px 0 0}
+.sub{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--apricot);margin:16px 0 8px;border-top:1px dashed #3a3a44;padding-top:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#seedIn{width:90px;font:600 14px "JetBrains Mono",monospace;padding:7px 9px;border-radius:8px;border:2px solid var(--book);background:#000;color:#eef7fc}
+.box{background:#000;border:2px solid #2b2b33;border-radius:10px;overflow:hidden}
+canvas{display:block;width:100%}
+#post{height:230px}#shelf{height:250px}#sweep{height:230px}
+.cap{font-size:13px;color:#b9cfdc;margin:8px 0 16px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin:8px 0 0;color:#dbe9f2}
+.legend i{display:inline-block;width:12px;height:12px;margin-right:5px;vertical-align:-1px;border:1.5px solid #fff}
+
+/* ===== KPI BADGES (pin: lilac terry cloth with red chain-stitch slab-serif lettering) ===== */
+.badges{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin:24px 0 0}
+.badge{position:relative;padding:16px 12px 14px;text-align:center;border-radius:14px;color:var(--stitch);
+ background-color:var(--terry);
+ background-image:radial-gradient(rgba(255,255,255,.28) 1px,transparent 1.6px),radial-gradient(rgba(70,40,150,.22) 1px,transparent 1.6px);
+ background-size:5px 5px,7px 7px;background-position:0 0,2px 3px;
+ box-shadow:inset 0 0 0 5px var(--terry),inset 0 0 0 7px rgba(255,255,255,.5),0 8px 0 var(--terry-d),0 14px 20px rgba(0,0,0,.35)}
+.badge::after{content:"";position:absolute;inset:10px;border:2px dashed rgba(200,30,42,.55);border-radius:9px;pointer-events:none}
+.badge .v{font-family:"Zilla Slab",serif;font-weight:700;font-size:31px;line-height:1.05;color:#B0141F;text-shadow:0 1px 0 rgba(255,255,255,.45),0 -1px 0 rgba(90,0,10,.35)}
+.badge .l{font-size:12.5px;font-weight:800;color:#2a1450;margin-top:4px}
+.badge .s{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:800;padding:2px 9px;border-radius:99px;background:#fff;color:#2a1450}
+.badge.fail .s{background:var(--stitch);color:#fff}
+.badge.pop{animation:pop .45s ease}
+@keyframes pop{40%{transform:scale(1.06)}}
+
+/* ===== MEMO ===== */
+.memo{background:#fff;border:2.5px solid var(--ink);border-radius:6px;padding:26px 24px;max-width:880px;position:relative}
+.memo dl{display:grid;grid-template-columns:150px 1fr;gap:10px 18px;margin:12px 0 0}
+.memo dt{font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding-top:2px;color:#6a2fc0}
+.memo dd{margin:0}
+.vp{margin-top:18px;border:2.5px solid var(--ink);border-radius:14px;padding:12px 14px;font-weight:800;background:linear-gradient(90deg,#FFE3D3,#FFF0CF,#D7F4F2,#E8DDFB,#FFDDEE)}
+.stamp{display:inline-block;font-family:"Gluten";font-weight:800;font-size:20px;color:var(--stitch);border:3px solid var(--stitch);border-radius:10px;padding:0 12px;transform:rotate(-4deg)}
+
+/* ===== MATH/CODE ===== */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
+.formula{font-family:"JetBrains Mono",monospace;background:var(--ink);color:#fff;border-radius:10px;padding:12px 14px;font-size:14px;overflow-x:auto;margin:10px 0;box-shadow:4px 4px 0 var(--teal)}
+#mix{height:170px;background:#fff;border:2.5px solid var(--ink);border-radius:8px}
+pre{margin:0;background:#111;color:#e9f6fc;border-radius:10px;padding:16px;font:13px/1.5 "JetBrains Mono",monospace;overflow-x:auto;box-shadow:5px 5px 0 var(--book)}
+pre .c{color:#8fd0f0}
+.codehead{font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 8px}
+.note{font-size:13px;color:var(--muted)}
+
+footer{background:var(--ink);color:#ece6f0;padding:30px 0 34px;font-size:14px}
+footer a{color:var(--apricot)}
+.credits{font-size:11px;color:#bdb4c4;margin-top:10px}
+.credits a{color:#d9d0e2}
+
+@media (max-width:860px){
+ .simgrid,.cols{grid-template-columns:minmax(0,1fr)}
+ .memo dl{grid-template-columns:1fr;gap:2px}.memo dt{margin-top:10px}
+ .hero svg.paint{opacity:.45;width:100%;right:-30%}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <symbol id="orn" viewBox="0 0 30 30"><path d="M3,27 C3,12 12,3 27,3" fill="none" stroke="#141214" stroke-width="2.5"/><circle cx="6" cy="6" r="4" fill="#141214"/><path d="M6,6 m-2,-6 a2,2 0 1,0 4,0 M6,6 m-6,-2 a2,2 0 1,0 0,4" fill="#141214"/><circle cx="15" cy="9" r="1.8" fill="#141214"/><circle cx="9" cy="15" r="1.8" fill="#141214"/></symbol>
+ </defs>
+</svg>
+
+<header class="hero">
+ <svg class="paint" viewBox="0 0 700 640" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+  <!-- five paint splats that become long brush trails, like file parts streaming out -->
+  <g>
+   <path class="drip" d="M150,92 C320,70 470,110 720,84" stroke="#F2645A" stroke-width="16" fill="none" stroke-linecap="round"/>
+   <path class="blob" d="M98,60 c26,-22 70,-10 70,22 c14,10 8,40 -18,42 c-10,24 -50,22 -58,0 c-28,-4 -32,-48 6,-64z" fill="#F2645A"/>
+   <circle cx="182" cy="56" r="7" fill="#F2645A"/><circle cx="70" cy="128" r="5" fill="#F2645A"/>
+  </g>
+  <g>
+   <path class="drip" d="M160,212 C330,190 480,236 720,206" stroke="#FFB25B" stroke-width="16" fill="none" stroke-linecap="round" style="animation-delay:.5s"/>
+   <path class="blob" d="M104,180 c30,-24 74,-8 70,26 c12,16 0,40 -24,38 c-14,20 -50,16 -54,-6 c-26,-10 -22,-46 8,-58z" fill="#FFB25B" style="animation-delay:.4s"/>
+   <circle cx="62" cy="230" r="6" fill="#FFB25B"/>
+  </g>
+  <g>
+   <path class="drip" d="M156,334 C320,316 470,362 720,330" stroke="#1FB5B5" stroke-width="16" fill="none" stroke-linecap="round" style="animation-delay:1s"/>
+   <path class="blob" d="M96,302 c28,-26 76,-12 72,22 c14,14 4,42 -22,40 c-12,22 -52,18 -56,-4 c-30,-8 -26,-46 6,-58z" fill="#1FB5B5" style="animation-delay:.8s"/>
+   <circle cx="186" cy="296" r="6" fill="#1FB5B5"/><circle cx="74" cy="376" r="4" fill="#1FB5B5"/>
+  </g>
+  <g>
+   <path class="drip" d="M160,456 C330,440 470,486 720,452" stroke="#8E5BE0" stroke-width="16" fill="none" stroke-linecap="round" style="animation-delay:1.5s"/>
+   <path class="blob" d="M100,424 c30,-24 76,-10 72,24 c12,14 2,42 -22,40 c-14,22 -52,18 -56,-4 c-28,-8 -24,-46 6,-60z" fill="#8E5BE0" style="animation-delay:1.2s"/>
+  </g>
+  <g>
+   <path class="drip" d="M154,576 C320,560 470,604 720,572" stroke="#FF5FB0" stroke-width="16" fill="none" stroke-linecap="round" style="animation-delay:2s"/>
+   <path class="blob" d="M96,546 c28,-24 74,-10 70,22 c14,14 4,42 -22,40 c-12,22 -50,18 -54,-4 c-28,-8 -26,-44 6,-58z" fill="#FF5FB0" style="animation-delay:1.6s"/>
+   <circle cx="180" cy="540" r="6" fill="#FF5FB0"/>
+  </g>
+  <!-- little 'part' ticks riding the trails -->
+  <g fill="#fff" stroke="#141214" stroke-width="2">
+   <rect x="430" y="76" width="26" height="18" rx="3"/><rect x="560" y="198" width="26" height="18" rx="3"/><rect x="380" y="322" width="26" height="18" rx="3"/><rect x="610" y="444" width="26" height="18" rx="3"/><rect x="470" y="566" width="26" height="18" rx="3"/>
+  </g>
+ </svg>
+ <div class="wrap">
+  <span class="kicker">APM Lab · decision prototype</span>
+  <h1>I break big problems into parts that land.</h1>
+  <div class="launch">Mirrors the launch: <a href="https://docs.databricks.com/aws/en/release-notes/product/2026/october" target="_blank" rel="noopener">Files API 3.0 for Unity Catalog volumes (Beta)</a> (Databricks release notes, Oct 23 2026): multipart uploads for files over 5 GB, plus version-conditional operations.</div>
+  <div class="byline"><span>Shriya Shekatkar</span><span>UCLA · Stats 102C Monte Carlo Methods</span></div>
+ </div>
+</header>
+
+<section class="gridpaper" id="decision">
+ <div class="wrap">
+  <span class="kicker">01 · The decision</span>
+  <h2>What default part size should the uploader use?</h2>
+  <p style="max-width:760px;margin:0 0 28px">If I were the PM shipping multipart uploads in the SDKs and CLI, I'd have to pick the part size people get when they don't choose one. Small parts mean thousands of requests and per-part overhead. Big parts mean each network hiccup throws away more bytes and makes a whole-file failure more likely. The part failure rate is only known from a short Beta, so I treat it as uncertain and let a Bayesian posterior carry that uncertainty into the decision.</p>
+  <div class="masonry">
+   <div class="flash"><svg class="orn tl"><use href="#orn"/></svg><svg class="orn br"><use href="#orn"/></svg>
+    <div class="tag">Customer problem</div>
+    <h3>“My 80 GB model checkpoint upload died at 97%.”</h3>
+    <p style="margin:0">An ML engineer pushes checkpoints and video datasets into a volume from a laptop on hotel Wi-Fi or from a CI runner. Before multipart, one dropped connection meant starting over. Now the file is split into parts that retry on their own, but only if the part size fits the network.</p>
+   </div>
+   <div class="flash"><svg class="orn tr"><use href="#orn"/></svg><svg class="orn bl"><use href="#orn"/></svg>
+    <div class="tag">Proposed change</div>
+    <h3>Ship one evidence-based default</h3>
+    <p style="margin:0">Set a default part size in the SDKs and CLI (still overridable), with 8 parallel streams and up to 3 retries per part. Re-check the default as telemetry piles up.</p>
+   </div>
+   <div class="flash"><svg class="orn tl"><use href="#orn"/></svg><svg class="orn br"><use href="#orn"/></svg>
+    <div class="tag">Success metric</div>
+    <h3>p90 time to upload an 80 GB file</h3>
+    <p style="margin:0">Taken across the posterior, so it reflects our uncertainty about the network, not one lucky guess. Lower is better.</p>
+   </div>
+   <div class="flash"><svg class="orn tr"><use href="#orn"/></svg><svg class="orn bl"><use href="#orn"/></svg>
+    <div class="tag">Guardrails</div>
+    <div class="guard"><span>Chance the whole upload fails (p90)</span><b>≤ 0.1%</b></div>
+    <div class="guard"><span>Bytes re-sent by retries</span><b>≤ 3%</b></div>
+    <div class="guard"><span>Client memory (part × streams)</span><b>≤ 2 GiB</b></div>
+    <div class="guard"><span>Parts per file</span><b>≤ 10,000</b></div>
+   </div>
+   <div class="flash"><svg class="orn tl"><use href="#orn"/></svg><svg class="orn br"><use href="#orn"/></svg>
+    <div class="tag">Stakeholders</div>
+    <ul>
+     <li><b>ML & data engineers</b> uploading big files</li>
+     <li><b>SDK / CLI team</b> who own the defaults</li>
+     <li><b>Storage & Files API eng</b>: request load and part limits</li>
+     <li><b>Unity Catalog / governance</b>: volumes, audit logs</li>
+     <li><b>Support</b>: “upload stuck” tickets</li>
+    </ul>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="sim" id="sim">
+ <div class="wrap">
+  <span class="kicker">02 · Live simulation</span>
+  <h2 style="color:#eef7fc">The bookshelf: every part is a spine</h2>
+  <p style="max-width:780px;margin:0 0 22px;color:#cfe3ee">The unknown is <b>q</b>, the chance that a 256 MiB stretch of transfer hits an error. A Beta prior (what past upload features taught us) meets Binomial evidence from the Beta (failures out of 4,000 stretches). The result is a Beta posterior. I draw 4,000 values of q from it, and for each one I work out every candidate part size's upload time and failure risk.</p>
+  <div class="simgrid">
+   <div class="panel">
+    <div class="ctl"><label for="ps">Default part size <output id="psO"></output></label><input id="ps" type="range" min="0" max="8" step="1" value="2"><small>The lever we ship.</small></div>
+    <div class="sub">Prior (past launches)</div>
+    <div class="ctl"><label for="pm">Prior mean of q <output id="pmO"></output></label><input id="pm" type="range" min="0.2" max="3" step="0.1" value="1.2"></div>
+    <div class="ctl"><label for="pn">Prior strength <output id="pnO"></output></label><input id="pn" type="range" min="20" max="4000" step="20" value="400"><small>How many 256 MiB stretches of past evidence the prior is worth.</small></div>
+    <div class="sub">Beta telemetry (n = 4,000 stretches)</div>
+    <div class="ctl"><label for="kf">Failures seen <output id="kfO"></output></label><input id="kf" type="range" min="0" max="160" step="1" value="28"></div>
+    <div class="sub">The customer's world</div>
+    <div class="ctl"><label for="fs">File size <output id="fsO"></output></label><input id="fs" type="range" min="6" max="500" step="2" value="80"></div>
+    <div class="ctl"><label for="bw">Bandwidth per stream <output id="bwO"></output></label><input id="bw" type="range" min="5" max="200" step="5" value="40"><small>8 streams run in parallel; each part also pays ~0.35 s of request overhead.</small></div>
+    <div class="row" style="margin-top:12px">
+     <label for="seedIn" style="font-size:13px;font-weight:600">Seed</label><input id="seedIn" type="number" value="102" min="1" max="999999">
+     <button class="btn ghost" id="rerun">Re-run</button>
+     <button class="btn" id="best" style="background:var(--book);color:#000;border-color:#000;box-shadow:3px 3px 0 #fff">Use best size</button>
+    </div>
+    <p class="cap" id="status" aria-live="polite" style="margin-bottom:0"></p>
+   </div>
+   <div>
+    <div class="box"><canvas id="post" role="img" aria-label="Prior and posterior distributions of the per-stretch failure rate q with credible interval"></canvas></div>
+    <p class="cap">Dashed: prior. Blue bars: 4,000 posterior draws. Red tick: the raw Beta rate k/n (the frequentist MLE). Yellow band: 95% credible interval.</p>
+    <div class="box"><canvas id="shelf" role="img" aria-label="Animated bookshelf where each book spine is one part of a simulated upload"></canvas></div>
+    <div class="legend"><span><i style="background:#62B5E0"></i>part landed</span><span><i style="background:#FFB25B"></i>landed after retry</span><span><i style="background:#C81E2A"></i>out of retries</span></div>
+    <p class="cap">One upload replayed with a q drawn from the posterior. Each spine is a part (or a bundle of parts for big files).</p>
+    <div class="box"><canvas id="sweep" role="img" aria-label="Bar chart of p90 upload time for each candidate part size, colored by guardrail pass or fail"></canvas></div>
+    <p class="cap">p90 upload time for every candidate size. Blue bars pass every guardrail, hatched bars fail one, and the outlined bar is the current lever.</p>
+   </div>
+  </div>
+  <div class="badges" id="badges"></div>
+ </div>
+</section>
+
+<section class="gridpaper" id="memo">
+ <div class="wrap">
+  <span class="kicker">03 · Director memo</span>
+  <h2>The memo rewrites itself from the shelf</h2>
+  <div class="memo">
+   <div class="row" style="justify-content:space-between"><b style="font-size:14px;color:var(--muted)">To: Director, Data Platform · From: Shriya (APM) · Re: default multipart part size</b><span class="stamp" id="stamp">SHIP</span></div>
+   <dl>
+    <dt>Decision</dt><dd id="mDecision"></dd>
+    <dt>Evidence</dt><dd id="mEvidence"></dd>
+    <dt>Risks</dt><dd id="mRisks"></dd>
+    <dt>Rollout</dt><dd id="mRollout"></dd>
+    <dt>Next step</dt><dd id="mNext"></dd>
+   </dl>
+   <div class="vp" id="mVP"></div>
+  </div>
+ </div>
+</section>
+
+<section id="math">
+ <div class="wrap">
+  <span class="kicker">04 · The math</span>
+  <h2>The math, from my Monte Carlo course</h2>
+  <div class="cols">
+   <div>
+    <p><b>Frequentist vs Bayesian.</b> A frequentist treats the failure rate q as one fixed number and estimates it with k/n. With only 28 failures in a short Beta, that number is shaky, and plugging it in as if it were exact hides the risk. A Bayesian gives q a distribution: a prior for what we believed before, updated by the data.</p>
+    <div class="formula">prior      q ~ Beta(a, b)<br>data       k failures in n ~ Binomial(n, q)<br>posterior  q | k ~ Beta(a + k, b + n − k)<br>post. mean = w·(a/(a+b)) + (1−w)·(k/n),  w = (a+b)/(a+b+n)</div>
+    <p><b>Product example.</b> The posterior mean is a weighted average of the prior mean and the Beta's raw rate, with weights set by how much evidence each side holds. A strong prior from earlier upload features pulls a noisy Beta toward history, and as real telemetry grows it takes over. With a flat prior, the peak of the posterior (MAP) equals the raw rate (MLE).</p>
+    <p><b>Monte Carlo on top.</b> Upload time and failure risk are messy functions of q. So I draw q from the posterior thousands of times, push each draw through the upload model, and read off p50, p90 and a 95% credible interval from the samples. I use quantile intervals here; a highest-posterior-density interval would be slightly narrower for a skewed Beta.</p>
+   </div>
+   <div>
+    <p class="codehead">Prior weight vs data weight, live</p>
+    <canvas id="mix" role="img" aria-label="Bar showing how much the posterior mean leans on the prior versus the Beta data"></canvas>
+    <p class="note">Move the prior-strength slider and watch the posterior mean slide from the raw Beta rate toward the prior mean.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="gridpaper" id="code">
+ <div class="wrap">
+  <span class="kicker">05 · Real data</span>
+  <h2>How I'd run it on real data</h2>
+  <div class="cols">
+   <div>
+    <p class="codehead">SQL · Beta evidence per network profile</p>
+<pre><span class="c">-- illustrative table names</span>
+WITH parts AS (
+  SELECT client_kind,                  <span class="c">-- 'cli' | 'python-sdk' | 'ci-runner'</span>
+         upload_id,
+         part_bytes,
+         attempt,
+         status                        <span class="c">-- 'OK' | 'RETRYABLE_ERROR'</span>
+  FROM main.storage_ops.multipart_part_attempts
+  WHERE event_date &gt;= date_sub(current_date(), 14)
+)
+SELECT client_kind,
+       sum(part_bytes) / power(2, 28)            AS stretches_256mib,
+       count_if(status = 'RETRYABLE_ERROR')     AS failures,
+       failures / stretches_256mib               AS raw_rate,
+       approx_percentile(part_bytes, 0.5) / power(2, 20) AS median_part_mib
+FROM parts
+GROUP BY client_kind;</pre>
+   </div>
+   <div>
+    <p class="codehead">Python · posterior Monte Carlo</p>
+<pre>import numpy as np
+rng = np.random.default_rng(102)
+
+def best_part_size(k, n, prior_mean=0.012, prior_n=400,
+                   file_gb=80, bw=40, streams=8, retries=3):
+    a = prior_mean * prior_n + k
+    b = (1 - prior_mean) * prior_n + (n - k)
+    q = rng.beta(a, b, size=4_000)          <span class="c"># posterior draws</span>
+    rows = []
+    for s in [16, 32, 64, 128, 256, 512, 1024, 2048, 4096]:
+        f = 1 - (1 - q) ** (s / 256)        <span class="c"># part fails</span>
+        parts = np.ceil(file_gb * 1024 / s)
+        tries = (1 - f ** (retries + 1)) / (1 - f)
+        secs = parts * tries * (0.35 + s / bw) / streams
+        p_fail = 1 - (1 - f ** (retries + 1)) ** parts
+        rows.append((s, np.quantile(secs, .9),
+                     np.quantile(p_fail, .9), (tries - 1).mean()))
+    ok = [r for r in rows if r[2] &lt;= 1e-3 and r[3] &lt;= .03
+          and r[0] * streams &lt;= 2048]
+    return min(ok, key=lambda r: r[1])</pre>
+   </div>
+  </div>
+ </div>
+</section>
+
+<footer>
+ <div class="wrap">
+  <div>Unofficial concept prototype by Shriya Shekatkar. All data is simulated. Not affiliated with any company.</div>
+  <div style="margin-top:8px"><a href="https://shriyashekatkar25-byte.github.io/apm-lab/">← Back to the APM Lab gallery</a></div>
+  <div class="credits">Design inspired by: <a href="https://www.pinterest.com/pin/905082856390028117/">Pick a colour, get a Bunny! (Café Bun Studio)</a> · <a href="https://www.pinterest.com/pin/1109785533256726799/">Where flowers dance (Tinyghetto)</a> · <a href="https://www.pinterest.com/pin/640285272070958471/">Job market so bad towel (alessandra)</a> · <a href="https://www.pinterest.com/pin/184295809740008177/">Susan Stewart</a></div>
+ </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+// Box-Muller normal, Marsaglia-Tsang gamma, beta = G1/(G1+G2)
+function normal(r){let u=0;while(u===0)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());}
+function gamma(r,k){if(k<1){return gamma(r,k+1)*Math.pow(r()||1e-12,1/k);} const d=k-1/3,c=1/Math.sqrt(9*d); for(;;){let x,v;do{x=normal(r);v=1+c*x;}while(v<=0);v=v*v*v;const u=r(); if(u<1-0.0331*x*x*x*x)return d*v; if(Math.log(u)<0.5*x*x+d*(1-v+Math.log(v)))return d*v;}}
+function beta(r,a,b){const x=gamma(r,a),y=gamma(r,b);return x/(x+y);}
+const SIZES=[16,32,64,128,256,512,1024,2048,4096], N_BETA=4000, D=4000, STREAMS=8, RETRIES=3, OVER=0.35;
+const G={pfail:0.001,resent:0.03,mem:2048,parts:10000};
+let S=null;
+function fmt(n,d=0){return n.toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});}
+function pct(x,d=1){return fmt(x*100,d)+"%";}
+function q(arr,p){return arr[Math.min(arr.length-1,Math.floor(p*arr.length))];}
+function dur(sec){return sec<90?fmt(sec,0)+"s":(sec<5400?fmt(sec/60,1)+"m":fmt(sec/3600,1)+"h");}
+function sizeLbl(s){return s>=1024?(s/1024)+" GiB":s+" MiB";}
+function evalSize(s,qs,F,bw){
+ const u=s/256, P=Math.ceil(F*1024/s), att=s/bw+OVER; const T=[],PF=[]; let rs=0;
+ for(let i=0;i<qs.length;i++){const f=1-Math.pow(1-qs[i],u); const fr=Math.pow(f,RETRIES+1); const tries=(1-fr)/(1-f);
+  T.push(P*tries*att/STREAMS+att); PF.push(1-Math.pow(1-fr,P)); rs+=tries-1;}
+ T.sort((a,b)=>a-b); PF.sort((a,b)=>a-b);
+ return {s,P,p50:q(T,.5),p90:q(T,.9),pf90:q(PF,.9),resent:rs/qs.length,mem:s*STREAMS};
+}
+function passes(r){return r.pf90<=G.pfail&&r.resent<=G.resent&&r.mem<=G.mem&&r.P<=G.parts;}
+function simulate(){
+ const seed=parseInt($("seedIn").value)||102, r=mulberry32(seed);
+ const m=+$("pm").value/100, n0=+$("pn").value, k=+$("kf").value, F=+$("fs").value, bw=+$("bw").value;
+ const a0=m*n0,b0=(1-m)*n0, a=a0+k, b=b0+N_BETA-k;
+ const qs=new Float64Array(D); for(let i=0;i<D;i++)qs[i]=beta(r,a,b);
+ const sorted=Array.from(qs).sort((x,y)=>x-y);
+ const rows=SIZES.map(s=>evalSize(s,qs,F,bw));
+ const ok=rows.filter(passes); const best=ok.length?ok.reduce((x,y)=>y.p90<x.p90?y:x):null;
+ const mle=k/N_BETA; const plug=SIZES.map(s=>evalSize(s,[Math.max(mle,1e-9)],F,bw)); const okP=plug.filter(passes); const bestPlug=okP.length?okP.reduce((x,y)=>y.p90<x.p90?y:x):null;
+ S={qs,sorted,rows,best,bestPlug,a,b,a0,b0,m,n0,k,mle,F,bw,seed,replay:r()};
+ window.__S=S; render(true);
+}
+function sizeCanvas(c){const rc=c.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);c.width=Math.round(rc.width*dpr);c.height=Math.round(rc.height*dpr);const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);return[x,rc.width,rc.height];}
+function betaPdfShape(x,a,b){return Math.exp((a-1)*Math.log(x)+(b-1)*Math.log(1-x));}
+function drawPost(){
+ const [x,W,H]=sizeCanvas($("post")); x.fillStyle="#000"; x.fillRect(0,0,W,H);
+ const L=14,R=14,T=22,B=30; const lo=0, hi=Math.max(q(S.sorted,.999)*1.35, S.m*1.8, S.mle*1.4, 0.004);
+ const X=v=>L+(v-lo)/(hi-lo)*(W-L-R); const bins=60, h=new Array(bins).fill(0);
+ S.qs.forEach(v=>{const i=Math.floor((v-lo)/(hi-lo)*bins); if(i>=0&&i<bins)h[i]++;}); const mx=Math.max(...h);
+ const ci=[q(S.sorted,.025),q(S.sorted,.975)];
+ x.fillStyle="rgba(255,178,91,.22)"; x.fillRect(X(ci[0]),T,X(ci[1])-X(ci[0]),H-T-B);
+ const bw=(W-L-R)/bins;
+ for(let i=0;i<bins;i++){const bh=h[i]/mx*(H-T-B); x.fillStyle="#62B5E0"; x.fillRect(L+i*bw+1,H-B-bh,bw-2,bh); x.strokeStyle="#000"; x.lineWidth=1; x.strokeRect(L+i*bw+1,H-B-bh,bw-2,bh);}
+ // halftone on bars
+ x.fillStyle="rgba(20,40,60,.35)"; for(let i=0;i<bins;i++){const bh=h[i]/mx*(H-T-B); for(let yy=H-B-bh+4;yy<H-B;yy+=6){x.beginPath();x.arc(L+i*bw+bw/2,yy,1,0,7);x.fill();}}
+ // prior curve
+ let pm=0; const pts=[]; for(let i=1;i<200;i++){const v=lo+(hi-lo)*i/200; const y=betaPdfShape(v,Math.max(S.a0,.05),Math.max(S.b0,.05)); pts.push([v,y]); if(y>pm&&isFinite(y))pm=y;}
+ x.strokeStyle="#fff"; x.setLineDash([5,4]); x.lineWidth=2; x.beginPath(); pts.forEach(([v,y],i)=>{const py=H-B-(y/pm)*(H-T-B)*.85; i?x.lineTo(X(v),py):x.moveTo(X(v),py);}); x.stroke(); x.setLineDash([]);
+ x.strokeStyle="#C81E2A"; x.lineWidth=3; x.beginPath(); x.moveTo(X(S.mle),T-4); x.lineTo(X(S.mle),H-B); x.stroke();
+ x.fillStyle="#dbe9f2"; x.font="600 11px 'DM Sans',sans-serif";
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4; x.fillText(pct(v,2),Math.min(X(v),W-40),H-10);}
+ x.fillStyle="#FFB25B"; x.font="800 12px 'DM Sans',sans-serif"; x.fillText(`95% CI ${pct(ci[0],2)} – ${pct(ci[1],2)}`,L+4,15);
+ x.fillStyle="#ff8a92"; x.fillText(`k/n = ${pct(S.mle,2)}`,Math.min(X(S.mle)+6,W-90),T+10);
+}
+let anim=null;
+function drawShelf(){
+ if(anim)cancelAnimationFrame(anim);
+ const [x,W,H]=sizeCanvas($("shelf")); const s=SIZES[+$("ps").value]; const r=mulberry32(Math.floor(S.replay*1e9)+s);
+ const qi=S.qs[Math.floor(S.replay*D)]; const f=1-Math.pow(1-qi,s/256); const P=Math.ceil(S.F*1024/s);
+ const maxSp=W<500?90:180; const per=Math.max(1,Math.ceil(P/maxSp)); const nSp=Math.ceil(P/per);
+ // simulate parts
+ const st=[]; let retried=0, failed=0;
+ for(let i=0;i<nSp;i++){let worst=0; const cnt=Math.min(per,P-i*per); for(let j=0;j<cnt;j++){let a=0; while(a<=RETRIES&&r()<f)a++; if(a>RETRIES){worst=2;failed++;} else if(a>0){worst=Math.max(worst,1);retried++;}} st.push(worst);}
+ const rowsN=W<500?3:3, perRow=Math.ceil(nSp/rowsN), shelfH=(H-30)/rowsN, spW=Math.max(3,(W-24)/perRow);
+ function base(){x.fillStyle="#0E0E10";x.fillRect(0,0,W,H);
+  for(let rr=0;rr<rowsN;rr++){const y=12+rr*shelfH+shelfH-6; x.fillStyle="#2a2a32"; x.fillRect(6,y,W-12,6); x.fillStyle="#62B5E0"; x.fillRect(6,y,W-12,1.5);}
+  x.fillStyle="#dbe9f2"; x.font="600 11px 'DM Sans',sans-serif";
+  x.fillText(W<500?`${fmt(P)} × ${sizeLbl(s)} · q ${pct(qi,2)} · part fail ${pct(f,2)}`:`${fmt(P)} parts of ${sizeLbl(s)}${per>1?` · 1 spine = ${per} parts`:""} · q = ${pct(qi,2)} · part fail ${pct(f,2)}`,8,H-6);}
+ function spine(i){const rr=Math.floor(i/perRow), c=i%perRow; const hgt=shelfH-18-((i*37)%7)*3; const X=12+c*spW, Y=12+rr*shelfH+shelfH-6-hgt;
+  const col=st[i]===2?"#C81E2A":(st[i]===1?"#FFB25B":"#62B5E0"); x.fillStyle=col; x.fillRect(X,Y,spW-1.5,hgt); x.strokeStyle="#000"; x.lineWidth=1.2; x.strokeRect(X,Y,spW-1.5,hgt);
+  if(spW>6){x.fillStyle="rgba(0,0,0,.55)"; x.fillRect(X+1,Y+hgt*.2,spW-3.5,2); x.fillRect(X+1,Y+hgt*.75,spW-3.5,2);
+   for(let yy=Y+hgt*.3;yy<Y+hgt*.7;yy+=5){x.beginPath();x.arc(X+(spW-1.5)/2,yy,.9,0,7);x.fill();}}}
+ base(); if(reduce){for(let i=0;i<nSp;i++)spine(i); return;}
+ let i=0; const stepN=Math.max(1,Math.ceil(nSp/60)); (function go(){for(let k=0;k<stepN&&i<nSp;k++,i++)spine(i); if(i<nSp)anim=requestAnimationFrame(go);})();
+}
+function drawSweep(){
+ const [x,W,H]=sizeCanvas($("sweep")); x.fillStyle="#000"; x.fillRect(0,0,W,H);
+ const L=12,R=12,T=24,B=34, n=SIZES.length, bw=(W-L-R)/n; const mx=Math.max(...S.rows.map(r=>r.p90)); const cur=+$("ps").value;
+ S.rows.forEach((r,i)=>{const bh=(r.p90/mx)*(H-T-B); const X0=L+i*bw+4, Y0=H-B-bh, w=bw-8; const ok=passes(r);
+  if(ok){x.fillStyle="#62B5E0"; x.fillRect(X0,Y0,w,bh);} else {x.save(); x.beginPath(); x.rect(X0,Y0,w,bh); x.clip(); x.fillStyle="#3a1216"; x.fillRect(X0,Y0,w,bh); x.strokeStyle="#C81E2A"; x.lineWidth=2; for(let d=-H;d<W;d+=8){x.beginPath();x.moveTo(X0+d,Y0+bh);x.lineTo(X0+d+bh,Y0);x.stroke();} x.restore();}
+  x.strokeStyle=i===cur?"#FFB25B":"#000"; x.lineWidth=i===cur?3:1.2; x.strokeRect(X0,Y0,w,bh);
+  x.fillStyle="#dbe9f2"; x.font=(W<500?"600 9.5px":"600 11px")+" 'DM Sans',sans-serif"; const lb=r.s>=1024?(r.s/1024)+"G":r.s+"M"; x.fillText(lb,X0+w/2-x.measureText(lb).width/2,H-18);
+  if(W>=500||i%2===0){const t=dur(r.p90); x.fillStyle="#eef7fc"; x.fillText(t,X0+w/2-x.measureText(t).width/2,Math.max(12,Y0-5));}
+  if(S.best&&r.s===S.best.s){x.fillStyle="#FFB25B"; x.font="800 11px 'DM Sans',sans-serif"; x.fillText("best",X0+w/2-12,H-5);}
+ });
+}
+function drawMix(){
+ const [x,W,H]=sizeCanvas($("mix")); x.clearRect(0,0,W,H); const w=(S.a0+S.b0)/(S.a0+S.b0+N_BETA); const pmean=S.a/(S.a+S.b);
+ const L=14,R=14; x.fillStyle="#141214"; x.font="800 12px 'DM Sans',sans-serif"; x.fillText("weight on prior vs Beta data",L,22);
+ x.fillStyle="#8E5BE0"; x.fillRect(L,32,(W-L-R)*w,34); x.fillStyle="#1FB5B5"; x.fillRect(L+(W-L-R)*w,32,(W-L-R)*(1-w),34); x.strokeStyle="#141214"; x.lineWidth=2.5; x.strokeRect(L,32,W-L-R,34);
+ x.font="800 12px 'DM Sans',sans-serif"; x.fillStyle="#fff"; if(w>.12)x.fillText("prior "+pct(w,0),L+6,54); x.fillStyle="#062b2b"; if(1-w>.12)x.fillText("data "+pct(1-w,0),L+(W-L-R)*w+6,54);
+ // number line
+ const lo=0, hi=Math.max(S.m,S.mle,pmean)*1.4+1e-4, X=v=>L+(v-lo)/(hi-lo)*(W-L-R), y=118;
+ x.strokeStyle="#141214"; x.lineWidth=2; x.beginPath(); x.moveTo(L,y); x.lineTo(W-R,y); x.stroke();
+ [[S.m,"#8E5BE0","prior mean"],[S.mle,"#1FB5B5","k/n"],[pmean,"#C81E2A","posterior mean"]].forEach(([v,c,t],i)=>{x.fillStyle=c; x.beginPath(); x.arc(X(v),y,7,0,7); x.fill(); x.strokeStyle="#141214"; x.stroke(); x.fillStyle="#141214"; x.font="700 11px 'DM Sans',sans-serif"; const lbl=t+" "+pct(v,2); const tx=Math.min(Math.max(L,X(v)-x.measureText(lbl).width/2),W-R-x.measureText(lbl).width); x.fillText(lbl,tx,i===2?y+26:(i===0?y-14:y+42));});
+}
+function badge(v,l,ok,s){return `<div class="badge ${ok?"":"fail"} pop"><div class="v">${v}</div><div class="l">${l}</div><div class="s">${ok?"✓ ":"✕ "}${s}</div></div>`;}
+function render(full){
+ const s=SIZES[+$("ps").value], r=S.rows[+$("ps").value];
+ $("psO").textContent=sizeLbl(s); $("pmO").textContent=(+$("pm").value).toFixed(1)+"%"; $("pnO").textContent=fmt(+$("pn").value); $("kfO").textContent=$("kf").value+" ("+pct(+$("kf").value/N_BETA,2)+")"; $("fsO").textContent=$("fs").value+" GB"; $("bwO").textContent=$("bw").value+" MB/s";
+ $("badges").innerHTML=
+  badge(dur(r.p90),"p90 upload time",true,"p50 "+dur(r.p50))+
+  badge(r.pf90<1e-5?"<0.001%":pct(r.pf90,r.pf90<0.01?3:1),"Whole-upload failure (p90)",r.pf90<=G.pfail,"≤ 0.1%")+
+  badge(pct(r.resent,1),"Bytes re-sent",r.resent<=G.resent,"≤ 3%")+
+  badge(r.mem>=1024?fmt(r.mem/1024,1)+" GiB":r.mem+" MiB","Client memory",r.mem<=G.mem,"≤ 2 GiB")+
+  badge(fmt(r.P),"Parts per file",r.P<=G.parts,"≤ 10,000");
+ $("status").textContent=`Seed ${S.seed} · ${fmt(D)} posterior draws · ${S.best?"best passing size: "+sizeLbl(S.best.s):"no size passes every guardrail"}`;
+ if(full){drawPost(); drawMix();}
+ drawShelf(); drawSweep(); memo(r);
+}
+function memo(r){
+ const b=S.best, ok=passes(r); $("stamp").textContent=ok&&b&&b.s===r.s?"SHIP":(b?"ADJUST":"HOLD");
+ const pmean=S.a/(S.a+S.b), ci=[q(S.sorted,.025),q(S.sorted,.975)];
+ $("mDecision").innerHTML=b?`Ship <b>${sizeLbl(b.s)}</b> as the default part size (8 streams, 3 retries per part), overridable per call. ${b.s===r.s?"That's the setting on screen.":`The setting on screen (${sizeLbl(r.s)}) ${ok?"passes but is slower at p90.":"fails a guardrail."}`}`
+  :`<b>Hold.</b> No single part size passes every guardrail for a ${S.F} GB file at ${S.bw} MB/s per stream. Consider adaptive part sizing (start small, grow while parts succeed).`;
+ const rb=b||r;
+ $("mEvidence").innerHTML=`The posterior puts the per-256 MiB failure rate at <b>${pct(pmean,2)}</b> (95% credible ${pct(ci[0],2)}–${pct(ci[1],2)}), against a raw Beta rate of ${pct(S.mle,2)}. At ${sizeLbl(rb.s)}, an ${S.F} GB upload takes <b>${dur(rb.p50)}</b> at p50 and <b>${dur(rb.p90)}</b> at p90, with a p90 whole-upload failure risk of <b>${rb.pf90<1e-5?"under 0.001%":pct(rb.pf90,3)}</b> and ${pct(rb.resent,1)} of bytes re-sent.`;
+ const plugNote=S.bestPlug&&b&&S.bestPlug.s!==b.s?`A plug-in analysis using only k/n would have picked ${sizeLbl(S.bestPlug.s)}, which ignores how uncertain a short Beta is.`:`The plug-in k/n analysis agrees, so the call holds up to the uncertainty in q.`;
+ $("mRisks").innerHTML=`${plugNote} Telemetry comes from early adopters, who are likely on better networks than the long tail (laptops, cross-region CI). The prior strength (${fmt(S.n0)}) is a judgment call. If real failures cluster in bursts rather than arriving independently, retries help less than this model assumes.`;
+ $("mRollout").innerHTML=`Ship the default behind a client-side flag. Turn it on for the CLI first (most visible, easiest to roll back), then the Python SDK at 10%, 50%, 100%. Watch the whole-upload failure rate and support tickets at each gate, and keep a kill switch that reverts to the previous default.`;
+ $("mNext").innerHTML=`Split the Beta evidence by client type (CLI, SDK, CI runner) with the query below, fit a posterior per profile, and check whether one default works for all of them or the client should adapt its part size.`;
+ $("mVP").innerHTML=b?`“Defaulting to ${sizeLbl(b.s)} parts gets an ${S.F} GB file up in about ${dur(b.p90)}, even at the pessimistic end of what the Beta data allows, with less than a ${b.pf90<1e-4?"1-in-10,000":"1-in-1,000"} chance of having to start over.”`:`“No fixed part size is safe for these networks; we should ship adaptive part sizing instead of one number.”`;
+}
+let t=null; const resim=()=>{clearTimeout(t); t=setTimeout(simulate,100);};
+["pm","pn","kf","fs","bw"].forEach(id=>$(id).addEventListener("input",resim));
+$("ps").addEventListener("input",()=>render(false));
+$("rerun").addEventListener("click",simulate); $("seedIn").addEventListener("change",simulate);
+$("best").addEventListener("click",()=>{if(S.best){$("ps").value=SIZES.indexOf(S.best.s); render(false);}});
+let wr=null; window.addEventListener("resize",()=>{clearTimeout(wr); wr=setTimeout(()=>render(true),150);});
+simulate();
+})();
+</script>
+</body>
+</html>
